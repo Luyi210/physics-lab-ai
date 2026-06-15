@@ -10,7 +10,7 @@ import { PolarizationChapter } from "./components/PolarizationChapter";
 import { ReadoutStrip } from "./components/ReadoutStrip";
 import { TopBar } from "./components/TopBar";
 import { materials, presets } from "./data/materials";
-import { calculateOptics, explainOptics } from "./physics/optics";
+import { calculateOptics, explainOptics, formatDegree, mediumName, radToDeg } from "./physics/optics";
 import type { ChapterKey, OpticsState, PresetKey } from "./types";
 
 const initialState: OpticsState = {
@@ -37,6 +37,35 @@ export default function App() {
 
   const result = useMemo(() => calculateOptics(state), [state]);
   const explanation = useMemo(() => explainOptics(state, result), [state, result]);
+  const assistantExperimentContext = useMemo(() => {
+    if (activeChapter !== "refraction") {
+      const chapterLabels: Record<ChapterKey, string> = {
+        refraction: "折射 / 全反射",
+        interference: "光的干涉",
+        diffraction: "光的衍射",
+        polarization: "光的偏振"
+      };
+
+      return `当前页面是「${chapterLabels[activeChapter]}」，该章节暂未接入实时参数。`;
+    }
+
+    const incidentMedium = mediumName(state.medium1, state.n1);
+    const refractedMedium = mediumName(state.medium2, state.n2);
+    const refractedAngle = result.theta2 === null ? null : radToDeg(result.theta2);
+    const criticalAngle = result.critical === null ? null : radToDeg(result.critical);
+
+    return [
+      "当前页面是「折射 / 全反射」。",
+      `入射介质：${incidentMedium}，折射率 n1=${state.n1.toFixed(2)}。`,
+      `折射介质：${refractedMedium}，折射率 n2=${state.n2.toFixed(2)}。`,
+      `入射角：${state.angle.toFixed(1)}°。`,
+      `折射角：${formatDegree(refractedAngle)}。`,
+      `临界角：${formatDegree(criticalAngle)}。`,
+      `当前状态：${explanation.status}。`,
+      `反射能量占比约 ${(result.reflectance * 100).toFixed(1)}%，透射能量占比约 ${(result.transmittance * 100).toFixed(1)}%。`,
+      `界面结论：${explanation.summary}`
+    ].join("\n");
+  }, [activeChapter, explanation.status, explanation.summary, result, state]);
 
   const updateState = useCallback((patch: Partial<OpticsState>) => {
     setState((current) => ({ ...current, ...patch }));
@@ -105,7 +134,7 @@ export default function App() {
         </>
       )}
 
-      <AIAssistant activeChapter={activeChapter} />
+      <AIAssistant activeChapter={activeChapter} experimentContext={assistantExperimentContext} />
     </div>
   );
 }

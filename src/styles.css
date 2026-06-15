@@ -2675,6 +2675,11 @@ button:disabled {
   font-weight: 900;
 }
 
+.ai-status-row span.is-ready {
+  background: rgba(226, 246, 242, 0.98);
+  color: #11615d;
+}
+
 .ai-message-list {
   display: grid;
   gap: 10px;

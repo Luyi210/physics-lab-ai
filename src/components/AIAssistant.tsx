@@ -1,6 +1,7 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { buildLocalAssistantReply } from "../physics/localAssistant";
+import { opticsKnowledge } from "../data/opticsKnowledge";
+import { buildOllamaAssistantReply, checkOllamaModel, OLLAMA_MODEL } from "../physics/ollamaClient";
 import type { ChapterKey } from "../types";
 
 type AssistantMessage = {
@@ -11,13 +12,16 @@ type AssistantMessage = {
 
 type AIAssistantProps = {
   activeChapter: ChapterKey;
+  experimentContext: string;
 };
+
+type ModelStatus = "checking" | "connected" | "offline";
 
 const introMessage: AssistantMessage = {
   id: 1,
   role: "assistant",
   content:
-    "我是 PhysicsLab AI 本地助教原型。当前版本先搭好了聊天入口和本地知识库检索接口，还没有导入知识库，也没有连接本地小模型。你可以先试着提问，后续导入资料后我会基于本地知识回答。"
+    "我是 PhysicsLab AI 本地助教。现在会优先调用本机 Ollama 小模型回答，并结合当前页面章节和仿真状态。知识库还没有导入，所以现阶段不会假装已经完成资料检索。"
 };
 
 const quickPrompts: Record<ChapterKey, string[]> = {
@@ -27,20 +31,34 @@ const quickPrompts: Record<ChapterKey, string[]> = {
   polarization: ["什么是偏振光？", "马吕斯定律怎么理解？", "偏振片为什么能减弱反光？"]
 };
 
-export function AIAssistant({ activeChapter }: AIAssistantProps) {
+export function AIAssistant({ activeChapter, experimentContext }: AIAssistantProps) {
   const [isOpen, setIsOpen] = useState(() => new URLSearchParams(window.location.search).get("ai") === "open");
   const [messages, setMessages] = useState<AssistantMessage[]>([introMessage]);
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
+  const [modelStatus, setModelStatus] = useState<ModelStatus>("checking");
   const nextId = useRef(2);
   const prompts = useMemo(() => quickPrompts[activeChapter], [activeChapter]);
+  const knowledgeLabel = opticsKnowledge.length > 0 ? `知识库 ${opticsKnowledge.length} 条` : "知识库待导入";
+  const modelLabel =
+    modelStatus === "checking" ? "正在检查模型" : modelStatus === "connected" ? `${OLLAMA_MODEL} 已连接` : "模型未连接";
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    checkOllamaModel(controller.signal)
+      .then((isReady) => setModelStatus(isReady ? "connected" : "offline"))
+      .catch(() => setModelStatus("offline"));
+
+    return () => controller.abort();
+  }, []);
 
   function addMessage(role: AssistantMessage["role"], content: string) {
     setMessages((current) => [...current, { id: nextId.current, role, content }]);
     nextId.current += 1;
   }
 
-  function ask(question: string) {
+  async function ask(question: string) {
     const trimmed = question.trim();
     if (!trimmed || isThinking) return;
 
@@ -48,11 +66,10 @@ export function AIAssistant({ activeChapter }: AIAssistantProps) {
     setInput("");
     setIsThinking(true);
 
-    window.setTimeout(() => {
-      const reply = buildLocalAssistantReply(trimmed, activeChapter);
-      addMessage("assistant", reply.answer);
-      setIsThinking(false);
-    }, 260);
+    const reply = await buildOllamaAssistantReply(trimmed, activeChapter, experimentContext);
+    setModelStatus(reply.usedModel ? "connected" : "offline");
+    addMessage("assistant", reply.answer);
+    setIsThinking(false);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -75,8 +92,8 @@ export function AIAssistant({ activeChapter }: AIAssistantProps) {
           </header>
 
           <div className="ai-status-row">
-            <span>知识库待导入</span>
-            <span>本地模型未连接</span>
+            <span className={opticsKnowledge.length > 0 ? "is-ready" : ""}>{knowledgeLabel}</span>
+            <span className={modelStatus === "connected" ? "is-ready" : ""}>{modelLabel}</span>
           </div>
 
           <div className="ai-message-list" aria-live="polite">
@@ -91,14 +108,14 @@ export function AIAssistant({ activeChapter }: AIAssistantProps) {
             {isThinking && (
               <article className="ai-message is-assistant">
                 <span>AI</span>
-                <p>正在检查本地知识库接口...</p>
+                <p>正在请求本地 Ollama 模型...</p>
               </article>
             )}
           </div>
 
           <div className="ai-prompt-row" aria-label="快捷问题">
             {prompts.map((prompt) => (
-              <button type="button" key={prompt} onClick={() => ask(prompt)}>
+              <button type="button" key={prompt} onClick={() => void ask(prompt)}>
                 {prompt}
               </button>
             ))}

@@ -6,7 +6,7 @@ export type AssistantReply = {
   sources: KnowledgeChunk[];
 };
 
-const chapterNames: Record<ChapterKey, string> = {
+export const chapterNames: Record<ChapterKey, string> = {
   refraction: "折射 / 全反射",
   interference: "光的干涉",
   diffraction: "光的衍射",
@@ -65,4 +65,3 @@ export function buildLocalAssistantReply(query: string, chapter: ChapterKey): As
     answer: `我从本地知识库中找到了 ${sources.length} 条相关内容。\n\n${sourceSummary}\n\n后续接入本地小模型后，这里会把检索结果交给模型生成更自然的讲解。`
   };
 }
-

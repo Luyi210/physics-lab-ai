@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { ApplicationsPanel } from "./components/ApplicationsPanel";
+import { AIAssistant } from "./components/AIAssistant";
 import { ControlDock } from "./components/ControlDock";
 import { DiffractionChapter } from "./components/DiffractionChapter";
 import { InterferenceChapter } from "./components/InterferenceChapter";
@@ -103,6 +104,8 @@ export default function App() {
           <ApplicationsPanel />
         </>
       )}
+
+      <AIAssistant activeChapter={activeChapter} />
     </div>
   );
 }

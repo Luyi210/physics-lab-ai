@@ -13,12 +13,26 @@ export const chapterNames: Record<ChapterKey, string> = {
   polarization: "光的偏振"
 };
 
+const stopTokens = new Set(["为什么", "什么", "怎么", "如何", "一下", "这个", "那个", "发生", "解释", "请问"]);
+
 function tokenize(text: string) {
-  return text
-    .toLowerCase()
+  const normalized = text.toLowerCase();
+  const wordTokens = normalized
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
     .filter(Boolean);
+  const cjkTokens = (normalized.match(/\p{Script=Han}+/gu) ?? []).flatMap((segment) => {
+    const chars = Array.from(segment);
+    const tokens: string[] = [];
+    for (const size of [2, 3, 4]) {
+      for (let index = 0; index <= chars.length - size; index += 1) {
+        tokens.push(chars.slice(index, index + size).join(""));
+      }
+    }
+    return tokens;
+  });
+
+  return Array.from(new Set([...wordTokens, ...cjkTokens])).filter((token) => token.length > 1 && !stopTokens.has(token));
 }
 
 function scoreChunk(queryTokens: string[], chunk: KnowledgeChunk, chapter: ChapterKey) {

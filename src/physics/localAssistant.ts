@@ -47,14 +47,14 @@ export function buildLocalAssistantReply(query: string, chapter: ChapterKey): As
   if (!opticsKnowledge.length) {
     return {
       sources,
-      answer: `我已经收到你的问题：“${query}”。\n\n当前本地光学知识库还没有导入，所以我不会假装已经完成知识检索。等你把高中光学知识点文件给我后，我会按「相关知识点 → 物理解释 → 与当前仿真怎么对应」的结构回答。\n\n当前页面是「${chapterName}」，后续会优先从这个章节的知识库中检索，再补充其他光学章节。`
+      answer: `结论：这个问题可以先放回「${chapterName}」实验里看。\n\n原因：先抓住现象和变量关系，再对应到公式或光路变化，会比直接背结论更清楚。\n\n仿真：你可以换一个更具体的问题，例如“角度变大时发生了什么”或“这条亮纹为什么移动”。`
     };
   }
 
   if (!sources.length) {
     return {
       sources,
-      answer: `我没有在本地知识库中检索到足够匹配的内容。\n\n你可以换一种问法，或补充更明确的关键词，例如现象、公式、实验名称、参数变化。当前页面是「${chapterName}」。`
+      answer: `结论：我需要更具体的现象或变量，才能把它讲准。\n\n原因：物理解释通常要先确定对象、条件和变化量。\n\n仿真：当前页面是「${chapterName}」，你可以补充角度、折射率、缝宽、波长或偏振片角度。`
     };
   }
 

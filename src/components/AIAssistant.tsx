@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
+import { loadStudentMemory } from "../agent/memory/studentMemory";
 import { opticsKnowledge } from "../data/opticsKnowledge";
-import { buildOllamaAssistantReply, checkOllamaModel, OLLAMA_MODEL } from "../physics/ollamaClient";
+import { checkOllamaAvailability, OLLAMA_LOCAL_URL, OLLAMA_MODEL, streamOllamaAssistantReply } from "../physics/ollamaClient";
+import type { OllamaAvailability } from "../physics/ollamaClient";
 import type { ChapterKey } from "../types";
 
 type AssistantMessage = {
@@ -15,13 +17,13 @@ type AIAssistantProps = {
   experimentContext: string;
 };
 
-type ModelStatus = "checking" | "connected" | "offline";
+type ModelStatus = "checking" | "connected" | "service-missing" | "model-missing";
 
 const introMessage: AssistantMessage = {
   id: 1,
   role: "assistant",
   content:
-    "我是 PhysicsLab AI 本地助教。现在会优先调用本机 Ollama 小模型回答，并结合当前页面章节和仿真状态。知识库还没有导入，所以现阶段不会假装已经完成资料检索。"
+    "我是 PhysicsLab AI 本地助教。基础模式会用内置知识库、公式工具和当前仿真状态回答；如果当前设备安装了 Ollama 和指定模型，会自动启用本地模型增强。"
 };
 
 const quickPrompts: Record<ChapterKey, string[]> = {
@@ -37,25 +39,47 @@ export function AIAssistant({ activeChapter, experimentContext }: AIAssistantPro
   const [input, setInput] = useState("");
   const [isThinking, setIsThinking] = useState(false);
   const [modelStatus, setModelStatus] = useState<ModelStatus>("checking");
+  const [ollamaAvailability, setOllamaAvailability] = useState<OllamaAvailability | null>(null);
+  const [showModelSetup, setShowModelSetup] = useState(false);
+  const [memoryCount, setMemoryCount] = useState(() => loadStudentMemory().recentQuestions.length);
   const nextId = useRef(2);
   const prompts = useMemo(() => quickPrompts[activeChapter], [activeChapter]);
   const knowledgeLabel = opticsKnowledge.length > 0 ? `知识库 ${opticsKnowledge.length} 条` : "知识库待导入";
-  const modelLabel =
-    modelStatus === "checking" ? "正在检查模型" : modelStatus === "connected" ? `${OLLAMA_MODEL} 已连接` : "模型未连接";
+  const memoryLabel = memoryCount > 0 ? `学习记忆 ${memoryCount} 条` : "学习记忆已开启";
+  const modelLabel = (() => {
+    if (modelStatus === "checking") return "模型增强检测中";
+    if (modelStatus === "connected") return `${OLLAMA_MODEL} 已启用`;
+    if (modelStatus === "model-missing") return "模型待下载";
+    return "Ollama 未运行";
+  })();
 
   useEffect(() => {
     const controller = new AbortController();
 
-    checkOllamaModel(controller.signal)
-      .then((isReady) => setModelStatus(isReady ? "connected" : "offline"))
-      .catch(() => setModelStatus("offline"));
+    refreshOllamaStatus(controller.signal);
 
     return () => controller.abort();
   }, []);
 
+  async function refreshOllamaStatus(signal?: AbortSignal) {
+    setModelStatus("checking");
+    const availability = await checkOllamaAvailability(signal);
+    setOllamaAvailability(availability);
+
+    if (availability.serviceRunning && availability.modelInstalled) {
+      setModelStatus("connected");
+    } else if (availability.serviceRunning) {
+      setModelStatus("model-missing");
+    } else {
+      setModelStatus("service-missing");
+    }
+  }
+
   function addMessage(role: AssistantMessage["role"], content: string) {
-    setMessages((current) => [...current, { id: nextId.current, role, content }]);
+    const id = nextId.current;
+    setMessages((current) => [...current, { id, role, content }]);
     nextId.current += 1;
+    return id;
   }
 
   async function ask(question: string) {
@@ -66,10 +90,21 @@ export function AIAssistant({ activeChapter, experimentContext }: AIAssistantPro
     setInput("");
     setIsThinking(true);
 
-    const reply = await buildOllamaAssistantReply(trimmed, activeChapter, experimentContext);
-    setModelStatus(reply.usedModel ? "connected" : "offline");
-    addMessage("assistant", reply.answer);
-    setIsThinking(false);
+    try {
+      const reply = await streamOllamaAssistantReply(trimmed, activeChapter, experimentContext, () => undefined);
+
+      if (reply.answerMode === "model") setModelStatus("connected");
+      if (reply.answerMode === "fallback") {
+        refreshOllamaStatus();
+      }
+      addMessage("assistant", reply.answer);
+      setMemoryCount(loadStudentMemory().recentQuestions.length);
+    } catch {
+      refreshOllamaStatus();
+      addMessage("assistant", "结论：这次回答没有生成成功。\n原因：本地助教响应中断，可能是模型还在加载或服务暂时不可用。\n仿真：你可以稍等几秒后重新提问，或先问一个更短的问题。");
+    } finally {
+      setIsThinking(false);
+    }
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -93,8 +128,27 @@ export function AIAssistant({ activeChapter, experimentContext }: AIAssistantPro
 
           <div className="ai-status-row">
             <span className={opticsKnowledge.length > 0 ? "is-ready" : ""}>{knowledgeLabel}</span>
-            <span className={modelStatus === "connected" ? "is-ready" : ""}>{modelLabel}</span>
+            <span className="is-ready">{memoryLabel}</span>
+            <span className="is-ready">基础助教可用</span>
+            <button className={modelStatus === "connected" ? "is-ready" : ""} type="button" onClick={() => setShowModelSetup((current) => !current)}>
+              {modelLabel}
+            </button>
           </div>
+
+          {showModelSetup && (
+            <div className="ai-model-setup">
+              <strong>本地模型增强</strong>
+              <p>当前网页默认只会连接这台设备上的 Ollama：{OLLAMA_LOCAL_URL}。分享给别人后，会检测对方电脑上的 Ollama，不会自动调用你的电脑。</p>
+              <code>ollama pull {OLLAMA_MODEL}</code>
+              <div>
+                <button type="button" onClick={() => refreshOllamaStatus()}>
+                  重新检测
+                </button>
+                <span>{ollamaAvailability?.serviceRunning ? "Ollama 服务已响应" : "Ollama 服务未响应"}</span>
+                <span>{ollamaAvailability?.modelInstalled ? "模型已安装" : "模型未安装"}</span>
+              </div>
+            </div>
+          )}
 
           <div className="ai-message-list" aria-live="polite">
             {messages.map((message) => (
@@ -105,12 +159,6 @@ export function AIAssistant({ activeChapter, experimentContext }: AIAssistantPro
                 ))}
               </article>
             ))}
-            {isThinking && (
-              <article className="ai-message is-assistant">
-                <span>AI</span>
-                <p>正在请求本地 Ollama 模型...</p>
-              </article>
-            )}
           </div>
 
           <div className="ai-prompt-row" aria-label="快捷问题">
@@ -124,7 +172,7 @@ export function AIAssistant({ activeChapter, experimentContext }: AIAssistantPro
           <form className="ai-input-row" onSubmit={handleSubmit}>
             <input value={input} onChange={(event) => setInput(event.target.value)} placeholder="问一个光学问题..." aria-label="输入光学问题" />
             <button type="submit" disabled={!input.trim() || isThinking}>
-              发送
+              {isThinking ? "生成中" : "发送"}
             </button>
           </form>
         </div>

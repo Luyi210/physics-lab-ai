@@ -2666,18 +2666,76 @@ button:disabled {
   background: rgba(200, 208, 202, 0.86);
 }
 
-.ai-status-row span {
+.ai-status-row span,
+.ai-status-row button {
   min-height: 34px;
+  border: 0;
   background: rgba(239, 248, 245, 0.96);
   color: var(--teal-deep);
   padding: 9px 12px;
   font-size: 12px;
   font-weight: 900;
+  text-align: left;
 }
 
-.ai-status-row span.is-ready {
+.ai-status-row button {
+  cursor: pointer;
+}
+
+.ai-status-row span.is-ready,
+.ai-status-row button.is-ready {
   background: rgba(226, 246, 242, 0.98);
   color: #11615d;
+}
+
+.ai-model-setup {
+  display: grid;
+  gap: 8px;
+  border-bottom: 1px solid rgba(200, 208, 202, 0.86);
+  background: rgba(255, 251, 235, 0.92);
+  padding: 12px 14px;
+}
+
+.ai-model-setup strong {
+  color: #273b34;
+  font-size: 13px;
+}
+
+.ai-model-setup p {
+  margin: 0;
+  color: #4f5c56;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.ai-model-setup code {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(210, 184, 95, 0.5);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.76);
+  color: #3f3320;
+  padding: 7px 8px;
+  font-size: 12px;
+}
+
+.ai-model-setup div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  align-items: center;
+}
+
+.ai-model-setup button,
+.ai-model-setup span {
+  min-height: 28px;
+  border: 1px solid rgba(174, 184, 177, 0.9);
+  border-radius: 999px;
+  background: #fbfcf8;
+  color: #35423d;
+  padding: 0 9px;
+  font-size: 11px;
+  font-weight: 850;
 }
 
 .ai-message-list {

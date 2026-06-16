@@ -6,6 +6,11 @@ export type AssistantReply = {
   sources: KnowledgeChunk[];
 };
 
+export type KnowledgeSearchResult = {
+  chunk: KnowledgeChunk;
+  score: number;
+};
+
 export const chapterNames: Record<ChapterKey, string> = {
   refraction: "折射 / 全反射",
   interference: "光的干涉",
@@ -13,7 +18,26 @@ export const chapterNames: Record<ChapterKey, string> = {
   polarization: "光的偏振"
 };
 
-const stopTokens = new Set(["为什么", "什么", "怎么", "如何", "一下", "这个", "那个", "发生", "解释", "请问"]);
+const stopTokens = new Set(["为什么", "什么", "怎么", "如何", "一下", "这个", "那个", "发生", "解释", "请问", "理解"]);
+
+const queryAliases: Array<{ when: string[]; tokens: string[] }> = [
+  { when: ["马吕斯"], tokens: ["偏振", "偏振片", "透振方向", "夹角", "光强", "cos", "cos²"] },
+  { when: ["malus"], tokens: ["偏振", "偏振片", "透振方向", "夹角", "光强", "cos", "cos²"] },
+  { when: ["双缝", "条纹间距"], tokens: ["双缝干涉", "条纹间距", "波长", "屏距", "双缝间距", "δx"] },
+  { when: ["薄膜"], tokens: ["薄膜干涉", "反射光", "波长", "彩色"] },
+  { when: ["气泡"], tokens: ["全反射", "水", "气泡", "反射光"] },
+  { when: ["光纤"], tokens: ["全反射", "内芯", "外套", "折射率"] },
+  { when: ["中央亮纹"], tokens: ["单缝衍射", "中央亮纹", "缝宽", "衍射"] },
+  { when: ["透振方向"], tokens: ["偏振片", "偏振光", "振动方向", "通过"] },
+  { when: ["眩光"], tokens: ["反射光", "偏振", "偏振片", "透振方向"] }
+];
+
+function expandQueryTokens(text: string) {
+  const normalized = text.toLowerCase();
+  return queryAliases
+    .filter((alias) => alias.when.some((keyword) => normalized.includes(keyword.toLowerCase())))
+    .flatMap((alias) => alias.tokens);
+}
 
 function tokenize(text: string) {
   const normalized = text.toLowerCase();
@@ -32,26 +56,33 @@ function tokenize(text: string) {
     return tokens;
   });
 
-  return Array.from(new Set([...wordTokens, ...cjkTokens])).filter((token) => token.length > 1 && !stopTokens.has(token));
+  return Array.from(new Set([...wordTokens, ...cjkTokens, ...expandQueryTokens(text)])).filter((token) => token.length > 1 && !stopTokens.has(token));
 }
 
 function scoreChunk(queryTokens: string[], chunk: KnowledgeChunk, chapter: ChapterKey) {
   const haystack = `${chunk.title} ${chunk.tags.join(" ")} ${chunk.content}`.toLowerCase();
-  const chapterBoost = chunk.chapter === chapter ? 3 : chunk.chapter === "general" ? 1 : 0;
+  const title = chunk.title.toLowerCase();
+  const tags = chunk.tags.map((tag) => tag.toLowerCase());
+  const chapterBoost = chunk.chapter === chapter ? 6 : chunk.chapter === "general" ? 1 : -2;
   const tokenScore = queryTokens.reduce((score, token) => score + (haystack.includes(token) ? 1 : 0), 0);
-  return tokenScore + chapterBoost;
+  const titleScore = queryTokens.reduce((score, token) => score + (title.includes(token) ? 2 : 0), 0);
+  const tagScore = queryTokens.reduce((score, token) => score + (tags.some((tag) => tag.includes(token) || token.includes(tag)) ? 3 : 0), 0);
+  return tokenScore + titleScore + tagScore + chapterBoost;
 }
 
-export function searchKnowledge(query: string, chapter: ChapterKey, limit = 3) {
+export function searchKnowledgeWithScores(query: string, chapter: ChapterKey, limit = 3): KnowledgeSearchResult[] {
   const queryTokens = tokenize(query);
   if (!queryTokens.length || !opticsKnowledge.length) return [];
 
   return opticsKnowledge
     .map((chunk) => ({ chunk, score: scoreChunk(queryTokens, chunk, chapter) }))
-    .filter((item) => item.score > 0)
+    .filter((item) => item.score >= 3)
     .sort((left, right) => right.score - left.score)
-    .slice(0, limit)
-    .map((item) => item.chunk);
+    .slice(0, limit);
+}
+
+export function searchKnowledge(query: string, chapter: ChapterKey, limit = 3) {
+  return searchKnowledgeWithScores(query, chapter, limit).map((item) => item.chunk);
 }
 
 export function buildLocalAssistantReply(query: string, chapter: ChapterKey): AssistantReply {
@@ -76,6 +107,6 @@ export function buildLocalAssistantReply(query: string, chapter: ChapterKey): As
 
   return {
     sources,
-    answer: `我从本地知识库中找到了 ${sources.length} 条相关内容。\n\n${sourceSummary}\n\n后续接入本地小模型后，这里会把检索结果交给模型生成更自然的讲解。`
+    answer: `结论：这个问题可以先看 ${sources[0].title}。\n\n原因：${sourceSummary}\n\n仿真：回到「${chapterName}」页面，改变相关变量后观察现象是否符合上面的规律。`
   };
 }

@@ -2,6 +2,19 @@
 
 最新版 React + TypeScript 仿真工程。
 
+## 在线 Demo
+
+GitHub Pages 部署地址：
+
+```text
+https://luyi210.github.io/physics-lab-ai/
+```
+
+说明：
+
+- 基础助教可直接在线体验。
+- 本地模型增强只会连接访问者自己电脑上的 Ollama，不会连接开发者电脑。
+
 ## 运行
 
 ```bash

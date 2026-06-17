@@ -165,6 +165,46 @@ button:disabled {
   letter-spacing: 0.08em;
 }
 
+.audience-strip {
+  display: grid;
+  grid-template-columns: 310px minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: rgba(251, 252, 248, 0.94);
+  box-shadow: var(--shadow-soft);
+  padding: 12px 16px;
+}
+
+.audience-strip div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.audience-strip span {
+  color: var(--teal-deep);
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.audience-strip strong {
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 900;
+}
+
+.audience-strip p {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 750;
+}
+
 .simulator {
   display: grid;
   grid-template-columns: minmax(760px, 1fr) 360px;
@@ -2873,6 +2913,7 @@ button:disabled {
 
 @media (max-width: 1240px) {
   .top-bar,
+  .audience-strip,
   .simulator,
   .learning-panel,
   .applications-panel {
@@ -2921,6 +2962,7 @@ button:disabled {
   }
 
   .top-bar,
+  .audience-strip,
   .simulator,
   .stage-panel,
   .control-dock,

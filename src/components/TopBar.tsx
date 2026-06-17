@@ -22,7 +22,7 @@ export function TopBar({ activeChapter, onChapterChange }: TopBarProps) {
         <span className="app-mark">PL</span>
         <div>
           <strong>PhysicsLab AI</strong>
-          <span>高中物理动态建模软件</span>
+          <span>面向高中生的 AI 光学实验助教</span>
         </div>
       </div>
       <nav className="chapter-nav" aria-label="光学章节">

@@ -103,6 +103,14 @@ export default function App() {
     <div className="app-shell">
       <TopBar activeChapter={activeChapter} onChapterChange={changeChapter} />
 
+      <section className="audience-strip" aria-label="产品定位">
+        <div>
+          <span>FOR HIGH SCHOOL PHYSICS</span>
+          <strong>为高中生物理学习设计</strong>
+        </div>
+        <p>把光学公式、实验现象和 AI 助教解释放在同一个可体验场景里，适合课堂演示、自学复习和实验预习。</p>
+      </section>
+
       {activeChapter === "interference" && <InterferenceChapter />}
       {activeChapter === "diffraction" && <DiffractionChapter />}
       {activeChapter === "polarization" && <PolarizationChapter />}

@@ -14,6 +14,7 @@ https://luyi210.github.io/physics-lab-ai/
 
 - 基础助教可直接在线体验。
 - 本地模型增强只会连接访问者自己电脑上的 Ollama，不会连接开发者电脑。
+- 在线 Demo 由 `gh-pages` 分支发布，`main` 分支保留源码、知识库、评测脚本和项目文档。
 
 ## 项目介绍
 
@@ -43,6 +44,8 @@ http://127.0.0.1:5173/
 ```bash
 npm run build
 ```
+
+说明：`dist/`、`node_modules/`、`tmp/` 都是本地生成或依赖目录，不提交到 GitHub。
 
 ## 当前模块
 

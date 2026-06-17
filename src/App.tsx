@@ -4,6 +4,7 @@ import { AIAssistant } from "./components/AIAssistant";
 import { ControlDock } from "./components/ControlDock";
 import { DiffractionChapter } from "./components/DiffractionChapter";
 import { InterferenceChapter } from "./components/InterferenceChapter";
+import { IntroModal } from "./components/IntroModal";
 import { LearningPanel } from "./components/LearningPanel";
 import { OpticsCanvas } from "./components/OpticsCanvas";
 import { PolarizationChapter } from "./components/PolarizationChapter";
@@ -34,6 +35,7 @@ export default function App() {
   const [activeChapter, setActiveChapter] = useState<ChapterKey>(initialChapter);
   const [state, setState] = useState<OpticsState>(initialState);
   const [activePreset, setActivePreset] = useState<PresetKey | null>("air-glass");
+  const [showIntro, setShowIntro] = useState(true);
 
   const result = useMemo(() => calculateOptics(state), [state]);
   const explanation = useMemo(() => explainOptics(state, result), [state, result]);
@@ -143,6 +145,7 @@ export default function App() {
       )}
 
       <AIAssistant activeChapter={activeChapter} experimentContext={assistantExperimentContext} />
+      {showIntro && <IntroModal onClose={() => setShowIntro(false)} />}
     </div>
   );
 }
